@@ -2,13 +2,13 @@
 
 `npm install evolve-ts`
 
-Update nested objects immutably with patches containing new values or functions to update values
+Immutably update nested objects with patches containing new values or functions to update values
 
 - **Simple yet powerful**: simple syntax for performing immutable updates
 - **Type-safe**: Robust type checking and type inferences
 - **Tiny**: < 0.5kb gzipped, zero dependencies
 
-## Examples
+## Usage
 
 Set a value
 ```javascript
@@ -111,15 +111,21 @@ import { evolve, unset } from "evolve-ts"
 evolve({ age: "22" }, { name: "Alice", age: 22 })
 // TypeError: Type 'number' is not assignable to type 'string'
 
-// cannot add values to target
-evolve({ name: "Alice", age: 23 }, { age: 22 })
-// TypeError: Property 'name' is missing in type '{ age: number; }' but required in type '{ name: string; age: number; }'
-
 // updaters should be typed and the return type should be the same as the argument type
 evolve({ age: (age: number) => age + 1 }, { name: "Alice", age: 22 })
+// ReturnType: { name: string; age: number; }
 
 // the unset flag should only be used with optional keys
 evolve({ age: unset }, { name: "Alice", age: 22 } as { name: string; age?: number; })
+// ReturnType: { name: string; age?: number; }
+
+// if the unset flag is used on a required key the return type will be unknown
+evolve({ age: unset }, { name: "Alice", age: 22 })
+// ReturnType: unknown
+
+// the patch should only contain properties in the target, if the patch contains extraneous properties the return type will be unknown
+evolve({ name: "Alice", age: 23 }, { age: 22 })
+// ReturnType: unknown
 ```
 
 The `evolve.poly` function is a type alias for `evolve` that allows polymorphism while still producing strongly typed results.
@@ -132,15 +138,15 @@ evolve.poly({ age: "22" }, { name: "Alice", age: 22 })
 
 // adding name key
 evolve.poly({ name: "Alice", age: 23 }, { age: 22 })
-// ReturnType: { name: string, age: number }
+// ReturnType: { name: string, age: number; }
 
 // adding age key with updater function
 evolve.poly({ age: () => 22 }, { name: "Alice" })
-// ReturnType: { name: string, age: number }
+// ReturnType: { name: string, age: number; }
 
-// changing age from number to unknown
+// removing age key
 evolve.poly({ age: unset }, { name: "Alice", age: 22 })
-// ReturnType: { name: string; age: unknown; }
+// ReturnType: { name: string; }
 ```
 
 ## Provided Functions

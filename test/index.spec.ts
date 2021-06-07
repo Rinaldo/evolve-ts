@@ -8,7 +8,7 @@ const state = {
         interests: {
             tea: true,
             mushrooms: true,
-        },
+        } as Record<string, boolean>,
     },
     foo: {
         a: false,
@@ -18,27 +18,27 @@ const state = {
 
 describe("the evolve function", () => {
     it("performs a deep merge of the passed in objects", () => {
-        expect(evolve({ age: 33 }, state.user)).toEqual({
+        const a: typeof state.user = evolve({ age: 33 }, state.user)
+        expect(a).toEqual({
             ...state.user,
             age: 33,
         })
-        expect(
-            evolve(
-                {
-                    user: {
-                        age: 33,
-                        friends: [{ name: "Claire", age: 55 }],
-                        interests: {
-                            mushrooms: false,
-                        },
-                    },
-                    foo: {
-                        b: true,
+        const b: typeof state = evolve(
+            {
+                user: {
+                    age: 33,
+                    friends: [{ name: "Claire", age: 55 }],
+                    interests: {
+                        mushrooms: false,
                     },
                 },
-                state
-            )
-        ).toEqual({
+                foo: {
+                    b: true,
+                },
+            },
+            state
+        )
+        expect(b).toEqual({
             ...state,
             user: {
                 ...state.user,
@@ -57,30 +57,33 @@ describe("the evolve function", () => {
     })
 
     it("treats functions in the patch object as updates for keys", () => {
-        expect(evolve({ age: (age: number) => age + 11 }, state.user)).toEqual({
+        const a: typeof state.user = evolve(
+            { age: (age: number) => age + 11 },
+            state.user
+        )
+        expect(a).toEqual({
             ...state.user,
             age: 33,
         })
-        expect(
-            evolve(
-                {
-                    user: {
-                        age: (age: number) => age + 11,
-                        friends: (friends: any[]) => [
-                            ...friends,
-                            { name: "Claire", age: 55 },
-                        ],
-                        interests: {
-                            mushrooms: (bool: boolean) => !bool,
-                        },
-                    },
-                    foo: {
-                        b: true,
+        const b: typeof state = evolve(
+            {
+                user: {
+                    age: (age: number) => age + 11,
+                    friends: (friends: any[]) => [
+                        ...friends,
+                        { name: "Claire", age: 55 },
+                    ],
+                    interests: {
+                        mushrooms: (bool: boolean) => !bool,
                     },
                 },
-                state
-            )
-        ).toEqual({
+                foo: {
+                    b: true,
+                },
+            },
+            state
+        )
+        expect(b).toEqual({
             ...state,
             user: {
                 ...state.user,
@@ -102,27 +105,41 @@ describe("the evolve function", () => {
     })
 
     it("omits keys when their value is the unset helper", () => {
-        expect(evolve({ foo: unset }, state)).toEqual({ user: state.user })
-        expect(evolve({ interests: { mushrooms: unset } }, state.user)).toEqual(
-            {
-                ...state.user,
-                interests: {
-                    tea: true,
-                },
-            }
+        // only optional keys can be removed
+        const a: Partial<typeof state> = evolve(
+            { foo: unset },
+            state as Partial<typeof state>
         )
+        expect(a).toEqual({ user: state.user })
+        const b: typeof state.user = evolve(
+            { interests: { mushrooms: unset, tea: false } },
+            state.user
+        )
+        expect(b).toEqual({
+            ...state.user,
+            interests: {
+                tea: false,
+            },
+        })
     })
 
     it("has a curried form", () => {
-        expect(evolve({ age: 33 })(state.user)).toEqual({
+        const a: typeof state.user = evolve({ age: 33 })(state.user)
+        expect(a).toEqual({
             ...state.user,
             age: 33,
         })
-        expect(evolve({ age: (age: number) => age + 11 })(state.user)).toEqual({
+        const b: typeof state.user = evolve({ age: (age: number) => age + 11 })(
+            state.user
+        )
+        expect(b).toEqual({
             ...state.user,
             age: 33,
         })
-        expect(evolve({ foo: unset })(state)).toEqual({ user: state.user })
+        const c: Partial<typeof state> = evolve({ foo: unset })(
+            state as Partial<typeof state>
+        )
+        expect(c).toEqual({ user: state.user })
         const untyped = evolve as any
         expect(untyped()()()()({ age: 33 })(state.user)).toEqual({
             ...state.user,
@@ -192,20 +209,20 @@ describe("the evolve function", () => {
     })
 
     it("has correct typings", () => {
-        // uncomment to check if this gives a type error as it should
-        // const error1 = evolve({ name: "Alice", age: 22 }, { name: "Bob" })
-        // const error2 = evolve({ name: "Alice" }, { name: 1 })
-        const state = {
+        // uncomment to confirm type error
+        // const error1 = evolve({ name: "Alice" }, { name: 1 })
+
+        // unknown because of extra key
+        const unknown1 = evolve({ name: "Alice", age: 22 }, { name: "Bob" })
+        expect(unknown1).toBeTruthy()
+
+        const tagState = {
             tags: {
                 foo: true,
                 bar: true,
             } as { [key: string]: boolean },
         }
-        // typing patches as partial would make the following type assertion unneccesary but would let errors above slip by
-        const a = evolve(
-            { tags: { baz: true } as { [key: string]: boolean } },
-            state
-        )
+        const a: typeof tagState = evolve({ tags: { baz: true } }, tagState)
         expect(a).toEqual({
             tags: {
                 foo: true,
@@ -213,8 +230,18 @@ describe("the evolve function", () => {
                 baz: true,
             },
         })
+        // unknown because of wrong index type
+        const unknown2 = evolve({ tags: { baz: "true" } }, tagState)
+        expect(unknown2).toBeTruthy()
 
-        const b = evolve.poly(
+        const b: {
+            other: number
+            tags: {
+                foo: boolean
+                baz: string
+                bar: string
+            }
+        } = evolve.poly(
             { tags: { bar: "true", baz: "true" } },
             { tags: { foo: true, bar: true }, other: 1 }
         )
@@ -222,8 +249,49 @@ describe("the evolve function", () => {
             tags: { foo: true, bar: "true", baz: "true" },
             other: 1,
         })
-        // omitted values are typed as unknown
-        const c = evolve.poly({ name: unset }, { name: "Alice", age: 22 })
+        // unset keys are removed from result type
+        const c: { age: number } = evolve.poly(
+            { name: unset },
+            { name: "Alice", age: 22 }
+        )
         expect(c).toEqual({ age: 22 })
+
+        const d: { name?: string } = evolve({ name: "Bob" }, {
+            name: "Alice",
+        } as { name?: string })
+        expect(d).toEqual({ name: "Bob" })
+
+        // unknown because removing a required key
+        const unknown3 = evolve({ name: unset }, { name: "Alice", age: 22 })
+        expect(unknown3).toBeTruthy()
+
+        const e: typeof tagState = evolve({ tags: { foo: unset } }, tagState)
+        expect(e).toEqual({
+            tags: {
+                bar: true,
+            },
+        })
+
+        const f: typeof tagState = evolve(
+            { tags: { foo: unset, bar: false } },
+            tagState
+        )
+        expect(f).toEqual({
+            tags: {
+                bar: false,
+            },
+        })
+
+        const g: { name: string; age: number } = evolve.poly(
+            { age: (): number => 22 },
+            { name: "Alice" }
+        )
+        expect(g).toEqual({ name: "Alice", age: 22 })
+
+        const h: { dict: Record<string, string> } = evolve(
+            { dict: () => ({ a: "" } as Record<string, string>) },
+            { dict: {} as Record<string, string> }
+        )
+        expect(h).toEqual({ dict: { a: "" } })
     })
 })
