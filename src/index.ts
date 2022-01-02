@@ -1,4 +1,13 @@
-import { Adjust, Evolve, Evolve_, MapArray, unset } from "./interfaces"
+import {
+    Adjust,
+    Evolve,
+    Evolve_,
+    MapArray,
+    ShallowEvolve,
+    ShallowAdjust,
+    ShallowMapArray,
+    unset,
+} from "./interfaces"
 export * from "./interfaces"
 
 const toString = {}.toString
@@ -13,12 +22,13 @@ const curry =
 
 const baseEvolve = (patch: any, target: any) => {
     if (patch && isObj(patch)) {
-        const newObject = isObj(target) ? { ...target } : {}
+        // shave bytes by reassigning, but not mutating, arguments
+        target = isObj(target) ? { ...target } : {}
         Object.keys(patch).forEach((key) => {
-            if (patch[key] === unset) delete newObject[key]
-            else newObject[key] = baseEvolve(patch[key], newObject[key])
+            if (patch[key] == unset) delete target[key]
+            else target[key] = baseEvolve(patch[key], target[key])
         })
-        return newObject
+        return target
     } else if (isFn(patch)) {
         return patch(target)
     } else {
@@ -26,43 +36,61 @@ const baseEvolve = (patch: any, target: any) => {
     }
 }
 
-/** merges changes from a patch object into a target object, the patch object can contain new values or functions to update values */
+/** deeply merges changes from a patch object into a target object, the patch object can contain new values or functions to update values */
 export const evolve = curry(baseEvolve) as Evolve
-evolve.poly = evolve
 
-/** polymorphic type alias for evolve: merges changes from a patch object into a target object, the patch object can contain new values or functions to update values */
+/** polymorphic type alias for evolve: deeply merges changes from a patch object into a target object, the patch object can contain new values or functions to update values */
 export const evolve_: Evolve_ = evolve
 
-const baseAdjust = (
-    predicateOrIndex: any,
-    updaterOrPatch: any,
-    array: any[]
-) => {
-    const updater = isFn(updaterOrPatch)
-        ? updaterOrPatch
-        : evolve(updaterOrPatch)
-
-    if (predicateOrIndex < 0) {
-        // allow using negative indexes as offsets from end
-        predicateOrIndex = array.length + predicateOrIndex
-    }
-
-    return array.map(
-        isFn(predicateOrIndex)
-            ? (item) => (predicateOrIndex(item) ? updater(item) : item)
-            : (item, i) => (i === predicateOrIndex ? updater(item) : item)
-    )
+const baseShallowEvolve = (patch: any, target: any) => {
+    // shave bytes by reassigning, but not mutating, arguments
+    target = { ...target }
+    Object.keys(patch).forEach((key) => {
+        const update = patch[key]
+        if (update == unset) delete target[key]
+        else target[key] = isFn(update) ? update(target[key]) : update
+    })
+    return target
 }
 
-/** conditionally maps values in an array with a callback function or patch. Value(s) to map can be specified with an index or predicate function. Negative indexes are treated as offsets from the array length */
-export const adjust: Adjust = curry(baseAdjust)
+/** merges changes from a patch object into a target object, the patch object can contain new values or functions to update values */
+export const shallowEvolve = curry(baseShallowEvolve) as ShallowEvolve
 
-const baseMap = (updaterOrPatch: any, array: any[]) =>
+const createAdjust =
+    (ev: any) => (predicateOrIndex: any, updaterOrPatch: any, array: any[]) => {
+        // shave bytes by reassigning, but not mutating, arguments
+        if (!isFn(updaterOrPatch)) {
+            updaterOrPatch = ev(updaterOrPatch)
+        }
+        if (predicateOrIndex < 0) {
+            // allow using negative indexes as offsets from end
+            predicateOrIndex = array.length + predicateOrIndex
+        }
+
+        return array.map(
+            isFn(predicateOrIndex)
+                ? (item) =>
+                      predicateOrIndex(item) ? updaterOrPatch(item) : item
+                : (item, i) =>
+                      i === predicateOrIndex ? updaterOrPatch(item) : item
+        )
+    }
+
+/** conditionally maps values in an array with a callback function or patch. Value(s) to map can be specified with an index or predicate function. Negative indexes are treated as offsets from the array length */
+export const adjust: Adjust = curry(createAdjust(evolve))
+
+/** conditionally maps values in an array with a callback function or patch. Value(s) to map can be specified with an index or predicate function. Negative indexes are treated as offsets from the array length */
+export const shallowAdjust: ShallowAdjust = curry(createAdjust(shallowEvolve))
+
+const createMap = (ev: any) => (updaterOrPatch: any, array: any[]) =>
     array.map(
         isFn(updaterOrPatch)
             ? (item: any) => updaterOrPatch(item) // clamp args to 1
-            : evolve(updaterOrPatch)
+            : ev(updaterOrPatch)
     )
 
 /** maps values in an array with a callback function or patch */
-export const map: MapArray = curry(baseMap)
+export const map: MapArray = curry(createMap(evolve))
+
+/** maps values in an array with a callback function or patch */
+export const shallowMap: ShallowMapArray = curry(createMap(shallowEvolve))

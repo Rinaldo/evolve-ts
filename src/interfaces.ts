@@ -34,6 +34,12 @@ export type Patch<Target extends { [key: string]: any }> = {
         : Target[K] | ((value: Target[K]) => Target[K])
 }
 
+export type ShallowPatch<Target extends { [key: string]: any }> = {
+    [K in keyof Target]?: IsOptional<Target, K> extends true
+        ? Target[K] | ((value: Target[K]) => Target[K]) | typeof Unset
+        : Target[K] | ((value: Target[K]) => Target[K])
+}
+
 export interface Evolve {
     <Context>(
         patch: Patch<
@@ -42,7 +48,6 @@ export interface Evolve {
     ): Context extends (...args: any) => any
         ? Context
         : (target: Context) => Context
-    // <Context extends (...args: any) => any>(patch: Patch<Parameters<Context>[0]>): Context;
     <Target extends { [key: string]: any }>(patch: Patch<Target>): (
         target: Target
     ) => Target // needed for using evolve within patch, not sure why...
@@ -50,8 +55,23 @@ export interface Evolve {
         patch: Patch<Target>,
         target: Target
     ): Target
+}
 
-    poly: Evolve_ // prefer evolve_ but keeping this to avoid making a breaking change
+export interface ShallowEvolve {
+    <Context>(
+        patch: ShallowPatch<
+            Context extends (...args: infer Param) => any ? Param : Context
+        >
+    ): Context extends (...args: any) => any
+        ? Context
+        : (target: Context) => Context
+    <Target extends { [key: string]: any }>(patch: ShallowPatch<Target>): (
+        target: Target
+    ) => Target // needed for using evolve within patch, not sure why...
+    <Target extends { [key: string]: any }>(
+        patch: ShallowPatch<Target>,
+        target: Target
+    ): Target
 }
 
 export interface Adjust {
@@ -72,6 +92,24 @@ export interface Adjust {
     ): Arr
 }
 
+export interface ShallowAdjust {
+    /** curried form for use within evolve or setState */
+    <Arr extends any[]>(
+        indexOrPredicate: number | ((item: Unarray<Arr>) => any),
+        patchOrUpdater:
+            | ShallowPatch<Unarray<Arr>>
+            | ((item: Unarray<Arr>) => Unarray<Arr>)
+    ): (array: Arr) => Arr
+    /** uncurried form and explicit array type */
+    <Arr extends any[]>(
+        indexOrPredicate: number | ((item: Unarray<Arr>) => any),
+        patchOrUpdater:
+            | ShallowPatch<Unarray<Arr>>
+            | ((item: Unarray<Arr>) => Unarray<Arr>),
+        array: Arr
+    ): Arr
+}
+
 export interface MapArray {
     /** curried form for use within evolve or setState */
     <Arr extends any[]>(
@@ -83,6 +121,22 @@ export interface MapArray {
     <Arr extends any[]>(
         patchOrUpdater:
             | Patch<Unarray<Arr>>
+            | ((item: Unarray<Arr>) => Unarray<Arr>),
+        array: Arr
+    ): Arr
+}
+
+export interface ShallowMapArray {
+    /** curried form for use within evolve or setState */
+    <Arr extends any[]>(
+        patchOrUpdater:
+            | ShallowPatch<Unarray<Arr>>
+            | ((item: Unarray<Arr>) => Unarray<Arr>)
+    ): (array: Arr) => Arr
+    /** uncurried form and explicit array type */
+    <Arr extends any[]>(
+        patchOrUpdater:
+            | ShallowPatch<Unarray<Arr>>
             | ((item: Unarray<Arr>) => Unarray<Arr>),
         array: Arr
     ): Arr
@@ -139,24 +193,20 @@ type ParsePatch<Patch, Target> = Patch extends any[]
                       Patch[K],
                       unknown
                   > // unique keys in Patch
-              } &
+              } & Partial<
                   // if key is optional in target it should be typed as optional in patch to avoid type errors as target has to extend patch
-                  Partial<
-                      // filter out Unset keys in Patch if the corresponding key in target is optional, this allows unsetting optional keys without changing the type
-                      FilterNeverKeys<
-                          {
-                              [K in OptionalKeys1<
-                                  Pick<Target, keyof Patch & keyof Target>
-                              >]: IfEquals<
-                                  Patch[K],
-                                  Unset,
-                                  never,
-                                  ParsePatch<Patch[K], Target[K]>
-                              >
-                          }
+                  // filter out Unset keys in Patch if the corresponding key in target is optional, this allows unsetting optional keys without changing the type
+                  FilterNeverKeys<{
+                      [K in OptionalKeys1<
+                          Pick<Target, keyof Patch & keyof Target>
+                      >]: IfEquals<
+                          Patch[K],
+                          Unset,
+                          never,
+                          ParsePatch<Patch[K], Target[K]>
                       >
-                  > &
-                  {
+                  }>
+              > & {
                       [K in RequiredKeys<
                           Pick<Target, keyof Patch & keyof Target>
                       >]: IfEquals<
@@ -190,21 +240,17 @@ export type MergeLeft<L, R> = L extends any[]
               Pick<R, Exclude<keyof R, keyof L>> & // unique keys in R
                   Pick<L, Exclude<keyof L, keyof R>> & // unique keys in L
                   Partial<
-                      FilterNeverKeys<
-                          {
-                              [K in OptionalKeys1<
-                                  Pick<L, keyof L & keyof R>
-                              >]: MergeLeft<L[K], R[K]>
-                          }
-                      >
-                  > & // merge optional shared keys
-                  FilterNeverKeys<
-                      {
-                          [K in RequiredKeys<
+                      FilterNeverKeys<{
+                          [K in OptionalKeys1<
                               Pick<L, keyof L & keyof R>
                           >]: MergeLeft<L[K], R[K]>
-                      }
-                  > // merge required shared keys
+                      }>
+                  > & // merge optional shared keys
+                  FilterNeverKeys<{
+                      [K in RequiredKeys<
+                          Pick<L, keyof L & keyof R>
+                      >]: MergeLeft<L[K], R[K]>
+                  }> // merge required shared keys
           >
         : L
     : L extends R

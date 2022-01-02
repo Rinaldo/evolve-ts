@@ -6,7 +6,7 @@ Immutably update nested objects with patches containing values or functions to u
 
 - **Simple yet powerful**: simple syntax for performing immutable updates
 - **Type-safe**: Robust type checking and type inferences
-- **Tiny**: < 0.5kb gzipped, zero dependencies
+- **Tiny**: < 1kb gzipped, zero dependencies
 
 ## Usage
 
@@ -144,19 +144,19 @@ evolve({
     // users: users => [...users, { name: "Claire", age: 44, id: 2 }]
 }, state)
 
-// increment ages of all users
+// increment the ages of all users
 evolve({
     users: map({ age: inc })
     // users: users => users.map(user => ({ ...user, age: age + 1 }))
 }, state)
 
-// set name of user by id
+// set the age of a user by id
 evolve({
     users: adjust(user => user.id === 1, { age: 55 })
     // users: users => users.map(user => user.id === 1 ? { ...user, age: 55 } : user)
 }, state)
 
-// remove user by id
+// remove a user by id
 evolve({
     users: filter(user => user.id !== 1)
     // users: users => users.filter(user => user.id !== 1)
@@ -199,6 +199,10 @@ evolve({ age: unset }, { name: "Alice", age: 22 })
 // cannot add extraneous properties to the patch
 evolve({ name: "Alice", age: 23 }, { age: 22 })
 // TypeError: ...'name' does not exist in type 'Patch<{ age: number; }>'
+
+// cannot set non-nullable properties to undefined when exactOptionalPropertyTypes is enabled
+evolve({ name: undefined }, { name: "Alice" })
+// Type 'undefined' is not assignable to type 'string | ((value: string) => string)'
 ```
 
 The `evolve_` function is a type alias for `evolve` that allows polymorphism while still producing strongly typed results.
@@ -222,19 +226,39 @@ evolve_({ age: unset }, { name: "Alice", age: 22 })
 // ReturnType: { name: string; }
 ```
 
+## Shallow Updates
+
+When updating flat data structures, deeply merging updates by default may not be desirable. When using `evolve`, a function update must be used to avoid deeply merging a particular key. As an alternative, a `shallowEvolve` function is also provided that only performs shallow updates.
+
+```typescript
+import { evolve, shallowEvolve } from "evolve-ts"
+
+declare const user
+
+// shallowEvolve is equivalent to using evolve with functional updates on the top level of the patch
+shallowEvolve({ user }) /* equivalent to */ evolve({ user: () => user })
+
+// evolve or Ramda's mergeDeepLeft can be used if a deep merge is needed for a particular key
+shallowEvolve({ user: evolve(user) }) /* equivalent to */ evolve({ user })
+```
+
 ## Provided Functions
 
 - `evolve`: Takes a patch object and a target object and returns a version of the target object with updates from the patch applied. A patch is a subset of the target object containing either values or functions to update values. Functions are called with existing values from the target, non-object values are set into the target, and object values are merged recursively.
 - `evolve_`: Type alias for evolve that allows polymorphism while still producing strongly typed results.
-- `unset`: Sentinel value that causes its key to be removed from the output.
 - `map`: Maps values in an array with a callback function or patch.
 - `adjust`: Conditionally maps values in an array with a callback function or patch. Value(s) to map can be specified with an index or predicate function. Negative indexes are treated as offsets from the array length.
+- `unset`: Sentinel value that causes its key to be removed from the output.
+- `shallowEvolve`: Like `evolve` but performs shallow updates.
+- `shallowMap`: Like `map` but performs shallow updates.
+- `shallowAdjust`: Like `adjust` but performs shallow updates.
+
 
 ## Why evolve-ts?
 
 The `evolve` function with its strict typings is ideal for use in reducers, setState and other places where values are updated but types don't change.
 
-evolve-ts was created as an alternative to [updeep](https://www.npmjs.com/package/updeep). It has all updeep's core functionality and much stronger TypeScript support, while being only 5% of the size and dependency free.
+evolve-ts was created as a lightweight alternative to [updeep](https://www.npmjs.com/package/updeep) and [immer](https://www.npmjs.com/package/immer). It has all of updeep's core functionality, strong TypeScript support, is only a fraction of the size of updeep or immer, and is dependency free.
 
 ## License
 

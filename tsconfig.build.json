@@ -5,7 +5,8 @@
         "moduleResolution": "node",
         "outDir": "./lib",
         "strict": true,
-        "target": "ES6"
+        "exactOptionalPropertyTypes": true,
+        "target": "ES2018"
     },
     "include": [
         "src/**/*"
