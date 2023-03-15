@@ -43,7 +43,11 @@ export type ShallowPatch<Target extends { [key: string]: any }> = {
 export interface Evolve {
     <Context>(
         patch: Patch<
-            Context extends (...args: infer Param) => any ? Param : Context
+            Context extends (...args: infer Param) => any
+                ? Param
+                : Context extends { [key: string]: any }
+                ? Context
+                : never
         >
     ): Context extends (...args: any) => any
         ? Context
@@ -60,7 +64,11 @@ export interface Evolve {
 export interface ShallowEvolve {
     <Context>(
         patch: ShallowPatch<
-            Context extends (...args: infer Param) => any ? Param : Context
+            Context extends (...args: infer Param) => any
+                ? Param
+                : Context extends { [key: string]: any }
+                ? Context
+                : never
         >
     ): Context extends (...args: any) => any
         ? Context

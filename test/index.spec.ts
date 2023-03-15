@@ -525,6 +525,12 @@ describe("the array helpers", () => {
                 ],
             },
         })
+        // returns the original array if no items were changed
+        const f: {
+            name: string
+            age: number
+        }[] = adjust(3, { age: 55 }, user.friends)
+        expect(f).toBe(user.friends)
     })
 })
 

@@ -62,18 +62,20 @@ const createAdjust =
         if (!isFn(updaterOrPatch)) {
             updaterOrPatch = ev(updaterOrPatch)
         }
+        // track if any item was changed
+        let changed
+        const updater = (item: any) => ((changed = 1), updaterOrPatch(item))
         if (predicateOrIndex < 0) {
             // allow using negative indexes as offsets from end
             predicateOrIndex = array.length + predicateOrIndex
         }
 
-        return array.map(
+        const mapped = array.map(
             isFn(predicateOrIndex)
-                ? (item) =>
-                      predicateOrIndex(item) ? updaterOrPatch(item) : item
-                : (item, i) =>
-                      i === predicateOrIndex ? updaterOrPatch(item) : item
+                ? (item) => (predicateOrIndex(item) ? updater(item) : item)
+                : (item, i) => (i === predicateOrIndex ? updater(item) : item)
         )
+        return changed ? mapped : array
     }
 
 /** conditionally maps values in an array with a callback function or patch. Value(s) to map can be specified with an index or predicate function. Negative indexes are treated as offsets from the array length */
