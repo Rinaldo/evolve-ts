@@ -5,38 +5,47 @@ export const unset = Unset
 
 type Unarray<T> = T extends Array<infer U> ? U : T
 
-type OptionalKeys<T> = {
+type OptionalKeysHelper<T> = {
     [K in keyof T]-?: Record<string, unknown> extends Pick<T, K> ? K : never
 }[keyof T]
 type IsOptional<T, K> = string extends keyof T // all keys are optional in an index type
     ? true
-    : [OptionalKeys<T>] extends [never] // if no optional keys in type, false
+    : [OptionalKeysHelper<T>] extends [never] // if no optional keys in type, false
     ? false
-    : K extends OptionalKeys<T>
+    : K extends OptionalKeysHelper<T>
     ? true
     : false
 
 export type Patch<Target extends { [key: string]: any }> = {
     [K in keyof Target]?: Target[K] extends any[]
         ? IsOptional<Target, K> extends true
-            ? Target[K] | ((value: Target[K]) => Target[K]) | typeof Unset
+            ?
+                  | Target[K]
+                  | ((value: Target[K]) => Target[K] | typeof Unset)
+                  | typeof Unset
             : Target[K] | ((value: Target[K]) => Target[K])
         : Target[K] extends { [key: string]: any }
         ? IsOptional<Target, K> extends true
             ?
                   | Target[K]
-                  | ((value: Target[K]) => Target[K])
-                  | Patch<Target[K]>
+                  | ((value: Target[K]) => Target[K] | typeof Unset)
                   | typeof Unset
+                  | Patch<Target[K]>
             : Target[K] | ((value: Target[K]) => Target[K]) | Patch<Target[K]>
         : IsOptional<Target, K> extends true
-        ? Target[K] | ((value: Target[K]) => Target[K]) | typeof Unset
+        ?
+              | Target[K]
+              | ((value: Target[K]) => Target[K] | typeof Unset)
+              | typeof Unset
         : Target[K] | ((value: Target[K]) => Target[K])
 }
 
 export type ShallowPatch<Target extends { [key: string]: any }> = {
     [K in keyof Target]?: IsOptional<Target, K> extends true
-        ? Target[K] | ((value: Target[K]) => Target[K]) | typeof Unset
+        ?
+              | Target[K]
+              | ((value: Target[K]) => Target[K] | typeof Unset)
+              | typeof Unset
         : Target[K] | ((value: Target[K]) => Target[K])
 }
 
@@ -174,14 +183,14 @@ type RequiredKeys<T> = Exclude<
     KeysOfType<T, Exclude<T[keyof T], undefined>>,
     undefined
 >
-type OptionalKeys1<T> = Exclude<keyof T, RequiredKeys<T>>
+type OptionalKeys<T> = Exclude<keyof T, RequiredKeys<T>>
 
 type IfEquals<A, B, T, F> = A extends B ? (B extends A ? T : F) : F
 
 type ParsePatch<Patch, Target> = Patch extends any[]
     ? Patch
     : Patch extends (...args: any[]) => any
-    ? ReturnType<Patch>
+    ? Exclude<ReturnType<Patch>, typeof Unset>
     : Patch extends typeof Unset
     ? never
     : Patch extends { [key: string]: any }
@@ -205,7 +214,7 @@ type ParsePatch<Patch, Target> = Patch extends any[]
                   // if key is optional in target it should be typed as optional in patch to avoid type errors as target has to extend patch
                   // filter out Unset keys in Patch if the corresponding key in target is optional, this allows unsetting optional keys without changing the type
                   FilterNeverKeys<{
-                      [K in OptionalKeys1<
+                      [K in OptionalKeys<
                           Pick<Target, keyof Patch & keyof Target>
                       >]: IfEquals<
                           Patch[K],
@@ -249,7 +258,7 @@ export type MergeLeft<L, R> = L extends any[]
                   Pick<L, Exclude<keyof L, keyof R>> & // unique keys in L
                   Partial<
                       FilterNeverKeys<{
-                          [K in OptionalKeys1<
+                          [K in OptionalKeys<
                               Pick<L, keyof L & keyof R>
                           >]: MergeLeft<L[K], R[K]>
                       }>

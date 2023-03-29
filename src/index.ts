@@ -12,7 +12,8 @@ export * from "./interfaces"
 
 const toString = {}.toString
 const isObj = (o: any) => toString.call(o) === "[object Object]"
-const isFn = (x: any): x is (...args: any[]) => any => typeof x === "function"
+const isFn = (x: any): x is (...args: any[]) => any =>
+    x != unset && typeof x === "function" // this will return false positives for classes other than unset
 const curry =
     (fn: (...args: any[]) => any) =>
     (...args: any[]) =>
@@ -25,8 +26,8 @@ const baseEvolve = (patch: any, target: any) => {
         // shave bytes by reassigning, but not mutating, arguments
         target = isObj(target) ? { ...target } : {}
         Object.keys(patch).forEach((key) => {
-            if (patch[key] == unset) delete target[key]
-            else target[key] = baseEvolve(patch[key], target[key])
+            target[key] = baseEvolve(patch[key], target[key])
+            if (target[key] == unset) delete target[key]
         })
         return target
     } else if (isFn(patch)) {
@@ -47,8 +48,8 @@ const baseShallowEvolve = (patch: any, target: any) => {
     target = { ...target }
     Object.keys(patch).forEach((key) => {
         const update = patch[key]
-        if (update == unset) delete target[key]
-        else target[key] = isFn(update) ? update(target[key]) : update
+        target[key] = isFn(update) ? update(target[key]) : update
+        if (target[key] == unset) delete target[key]
     })
     return target
 }

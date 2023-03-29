@@ -146,6 +146,16 @@ describe("the evolve function", () => {
                 tea: false,
             },
         })
+        const c: typeof user = evolve(
+            { interests: { mushrooms: () => unset, tea: false } },
+            user
+        )
+        expect(c).toEqual({
+            ...user,
+            interests: {
+                tea: false,
+            },
+        })
     })
 
     it("has a curried form", () => {
@@ -260,7 +270,7 @@ describe("the evolve function", () => {
         // uncomment to confirm type errors
         // const error1 = evolve({ age: "22" }, { name: "Alice", age: 22 })
         // const error2 = evolve({ name: "Alice", age: 22 }, { name: "Bob" })
-        // const error3 = evolve({ name: unset }, { name: "Alice", age: 22 })
+        // const error3 = evolve({ name: () => unset }, { name: "Alice", age: 22 })
         // const error4 = evolve({ tags: { baz: "true" } }, tagState)
         // const error5 = evolve({ name: undefined }, { name: "Alice" })
 
@@ -400,11 +410,11 @@ describe("the evolve function", () => {
             other: 1,
         })
 
-        const c: { age: number } = evolve_(
-            { name: unset },
-            { name: "Alice", age: 22 }
-        )
+        const c = evolve_({ name: unset }, { name: "Alice", age: 22 })
         expect(c).toEqual({ age: 22 })
+
+        const d = evolve_({ name: () => unset }, { name: "Alice", age: 22 })
+        expect(d).toEqual({ age: 22 })
 
         const g: { name: string; age: number } = evolve_(
             { age: () => 22 },
@@ -578,6 +588,20 @@ describe("the shallow evolve function", () => {
         })
     })
 
+    it("omits keys when their value is the unset helper", () => {
+        // only optional keys can be removed
+        const a: Partial<typeof state> = shallowEvolve(
+            { foo: unset },
+            state as Partial<typeof state>
+        )
+        expect(a).toEqual({ user })
+        const b: Partial<typeof state> = shallowEvolve(
+            { foo: () => unset },
+            state as Partial<typeof state>
+        )
+        expect(b).toEqual({ user })
+    })
+
     it("has a curried form", () => {
         const a: typeof user = shallowEvolve<typeof user>({ age: 33 })(user)
         expect(a).toEqual({
@@ -627,7 +651,7 @@ describe("the shallow evolve function", () => {
         // const error1 = shallowEvolve({ age: "22" }, { name: "Alice", age: 22 })
         // const error2 = shallowEvolve({ name: "Alice", age: 22 }, { name: "Bob" })
         // const error3 = shallowEvolve({ name: undefined }, { name: "Alice" })
-        // const error4 = shallowEvolve({ name: unset }, { name: "Alice" })
+        // const error4 = shallowEvolve({ name: () => unset }, { name: "Alice" })
 
         const a: typeof tagState = shallowEvolve(
             { tags: { baz: true } },

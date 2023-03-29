@@ -88,6 +88,23 @@ evolve({
         age: 33,
     })
 }, state)
+
+// { user: { name: "Bob", age: 33 } }
+```
+
+### Removing object entries
+
+Entries can be removed by setting the value to `unset` or using an updater function that returns `unset`. 
+
+```javascript
+evolve({
+    user: {
+        name: unset,
+        age: () => unset
+    }
+}, state)
+
+// { user: {} }
 ```
 
 ### Working with Arrays
@@ -128,7 +145,7 @@ Other array helpers such as `append` and `filter` are not re-implemented by evol
 
 ```javascript
 import { adjust, evolve, map } from "evolve-ts"
-import { append, filter, inc } from "" // from your favorite functional utility library
+import { append, filter, inc } from "" // your favorite functional utility library
 
 
 const state = {
@@ -141,25 +158,21 @@ const state = {
 // add a new user
 evolve({
     users: append({ name: "Claire", age: 44, id: 2 })
-    // users: users => [...users, { name: "Claire", age: 44, id: 2 }]
 }, state)
 
 // increment the ages of all users
 evolve({
     users: map({ age: inc })
-    // users: users => users.map(user => ({ ...user, age: age + 1 }))
 }, state)
 
 // set the age of a user by id
 evolve({
     users: adjust(user => user.id === 1, { age: 55 })
-    // users: users => users.map(user => user.id === 1 ? { ...user, age: 55 } : user)
 }, state)
 
 // remove a user by id
 evolve({
     users: filter(user => user.id !== 1)
-    // users: users => users.filter(user => user.id !== 1)
 }, state)
 ```
 
@@ -228,17 +241,16 @@ evolve_({ age: unset }, { name: "Alice", age: 22 })
 
 ## Shallow Updates
 
-When updating flat data structures, deeply merging updates by default may not be desirable. When using `evolve`, a function update must be used to avoid deeply merging a particular key. As an alternative, a `shallowEvolve` function is also provided that only performs shallow updates.
+The behavior of `shallowEvolve` is similar to the spread operator except it accepts updater functions.
 
 ```typescript
 import { evolve, shallowEvolve } from "evolve-ts"
 
 declare const user
 
-// shallowEvolve is equivalent to using evolve with functional updates on the top level of the patch
 shallowEvolve({ user }) /* equivalent to */ evolve({ user: () => user })
 
-// evolve or Ramda's mergeDeepLeft can be used if a deep merge is needed for a particular key
+// evolve can be used within shallowEvolve if a deep merge is needed for a particular key
 shallowEvolve({ user: evolve(user) }) /* equivalent to */ evolve({ user })
 ```
 
@@ -256,9 +268,25 @@ shallowEvolve({ user: evolve(user) }) /* equivalent to */ evolve({ user })
 
 ## Why evolve-ts?
 
-The `evolve` function with its strict typings is ideal for use in reducers, setState and other places where values are updated but types don't change.
-
 evolve-ts was created as a lightweight alternative to [updeep](https://www.npmjs.com/package/updeep) and [immer](https://www.npmjs.com/package/immer). It has all of updeep's core functionality, strong TypeScript support, is only a fraction of the size of updeep or immer, and is dependency free.
+
+## Caveats
+
+evolve-ts treats all functions in patches as updater functions, so if your state contains function values you want to update you must wrap the updates in a `constant` function.
+
+```typescript
+import { evolve } from "evolve-ts"
+
+const state = {
+    name: "Alice",
+    greet: (person) => console.log(`Hi ${person} I'm Alice!`)
+}
+// need to use a wrapper to set new function values
+evolve({
+    name: "Bob",
+    greet: () => (person) => console.log(`Hi ${person} I'm Bob!`)
+}, state)
+```
 
 ## License
 
